@@ -1,0 +1,9 @@
+venv/
+__pycache__/
+*.pyc
+.env
+static/audio/*
+static/images/*
+!static/audio/.gitkeep
+!static/images/.gitkeep
+.pytest_cache/
