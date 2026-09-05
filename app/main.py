@@ -78,3 +78,17 @@ async def analyze_endpoint(
 @app.get("/")
 def read_root():
     return {"message": "WhatsApp Suraksha Backend is Running"}
+
+# ─── WhatsApp Webhook (Twilio) ────────────────────────────────────────────────
+from app.whatsapp_webhook import handle_whatsapp_message
+from fastapi import Request as FastAPIRequest
+
+@app.post("/whatsapp")
+async def whatsapp_webhook(request: FastAPIRequest):
+    form = await request.form()
+    return await handle_whatsapp_message(
+        Body=form.get("Body", ""),
+        From=form.get("From", ""),
+        MediaUrl0=form.get("MediaUrl0"),
+        MediaContentType0=form.get("MediaContentType0"),
+    )
