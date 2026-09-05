@@ -7,3 +7,4 @@ static/images/*
 !static/audio/.gitkeep
 !static/images/.gitkeep
 .pytest_cache/
+cloudflared.exe
