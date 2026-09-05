@@ -1,5 +1,6 @@
-from fastapi import FastAPI, File, UploadFile, Form, BackgroundTasks
+from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from app.core.router import InputRouter
 from app.ai.explainer import AIExplainer
 from app.accessibility.tts import TTSGenerator
@@ -12,6 +13,15 @@ import os
 load_dotenv()
 
 app = FastAPI(title="WhatsApp Suraksha API")
+
+# Allow the Next.js frontend (localhost:3000) to call this backend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Ensure static directories exist
 os.makedirs("static/audio", exist_ok=True)
@@ -35,34 +45,34 @@ async def analyze_endpoint(
         file_bytes = await file.read()
         filename = file.filename
 
-    # 1. Route to analyzers and get deterministic risk score
+    # 1. Route to analyzers → deterministic risk score
     results, risk_score, risk_level = router.route_and_analyze(text, url, file_bytes, filename)
-    
-    # 2. Get AI Explanation (English)
+
+    # 2. AI Explanation — English
     results_dict = [r.dict() for r in results]
     explanation_en = explainer.generate_explanation(results_dict, risk_score, risk_level, language="English")
-    
-    # 3. Get AI Explanation (Hindi) - We can do this in parallel but sequential for MVP
+
+    # 3. AI Explanation — Hindi
     explanation_hi = explainer.generate_explanation(results_dict, risk_score, risk_level, language="Hindi")
 
-    # 4. Generate TTS (English & Hindi)
-    # The text to read is the summary + explanation
-    text_to_read_en = f"{explanation_en.summary} {explanation_en.explanation}"
-    text_to_read_hi = f"{explanation_hi.summary} {explanation_hi.explanation}"
-    
-    audio_path_en = tts_generator.generate_audio(text_to_read_en, lang="en")
-    audio_path_hi = tts_generator.generate_audio(text_to_read_hi, lang="hi")
+    # 4. TTS voice notes
+    audio_path_en = tts_generator.generate_audio(
+        f"{explanation_en.summary} {explanation_en.explanation}", lang="en"
+    )
+    audio_path_hi = tts_generator.generate_audio(
+        f"{explanation_hi.summary} {explanation_hi.explanation}", lang="hi"
+    )
 
-    # 5. Generate Gauge Image
+    # 5. Risk gauge image
     gauge_path = gauge_generator.generate_gauge(risk_score)
 
     return {
         "explanation": explanation_en.dict(),
         "risk_score": risk_score,
         "risk_level": risk_level,
-        "audio_url_en": f"/{audio_path_en}" if audio_path_en else None,
-        "audio_url_hi": f"/{audio_path_hi}" if audio_path_hi else None,
-        "gauge_image_url": f"/{gauge_path}" if gauge_path else None
+        "audio_url_en": f"/static/audio/{os.path.basename(audio_path_en)}" if audio_path_en else None,
+        "audio_url_hi": f"/static/audio/{os.path.basename(audio_path_hi)}" if audio_path_hi else None,
+        "gauge_image_url": f"/static/images/{os.path.basename(gauge_path)}" if gauge_path else None,
     }
 
 @app.get("/")
